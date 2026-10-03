@@ -1,10 +1,11 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
+	"myutil-server/models"
 	"net"
 	"net/http"
-	"myutil-server/models"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,7 +78,15 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ID == "" {
+		writeError(w, http.StatusBadRequest, "missing agent id")
+		return
+	}
 	if err := s.DB.UpdateAgentSeen(req.ID, req.Version); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "agent is not registered")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "database error")
 		return
 	}

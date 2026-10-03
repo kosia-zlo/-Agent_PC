@@ -24,11 +24,21 @@ func (db *DB) UpsertAgent(a *models.Agent) error {
 }
 
 func (db *DB) UpdateAgentSeen(id, version string) error {
-	_, err := db.Conn.Exec(
+	result, err := db.Conn.Exec(
 		"UPDATE agents SET last_seen = ?, status = 'online', version = ? WHERE id = ?",
 		time.Now().UTC(), version, id,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (db *DB) ListAgents() ([]models.Agent, error) {

@@ -15,12 +15,12 @@ import (
 )
 
 type TaskParams struct {
-	Path     string   `json:"path"`
-	Pattern  string   `json:"pattern"`
-	URL      string   `json:"url"`
-	SHA256   string   `json:"sha256"`
-	Args     []string `json:"args"`
-	WorkDir  string   `json:"work_dir"`
+	Path    string   `json:"path"`
+	Pattern string   `json:"pattern"`
+	URL     string   `json:"url"`
+	SHA256  string   `json:"sha256"`
+	Args    []string `json:"args"`
+	WorkDir string   `json:"work_dir"`
 }
 
 func executeTask(t Task) (string, error) {
@@ -120,7 +120,7 @@ func runExecuteBinary(p TaskParams) (string, error) {
 	// 2. Download binary
 	fileName := filepath.Base(p.URL)
 	destPath := filepath.Join(workDir, fileName)
-	
+
 	if err := downloadFile(p.URL, destPath); err != nil {
 		return "", fmt.Errorf("download failed: %v", err)
 	}
@@ -139,10 +139,10 @@ func runExecuteBinary(p TaskParams) (string, error) {
 	// 5. Execute
 	cmd := exec.Command(destPath, p.Args...)
 	cmd.Dir = workDir
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Sprintf(`{"status":"error", "output": %q, "err": %q}`, 
+		return fmt.Sprintf(`{"status":"error", "output": %q, "err": %q}`,
 			string(output), err.Error()), nil
 	}
 

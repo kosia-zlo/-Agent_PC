@@ -1,39 +1,84 @@
 # Agent Management Server
 
-Utility for managing a fleet of agents on Windows/Linux machines.
+Сервер управления агентами и Go-агент для Windows/Linux. В этой версии агент регистрируется при каждом запуске, отправляет heartbeat и получает задачи с сервера.
 
-## Quick Start
+## Версия
 
-1. Create necessary directories:
-   ```bash
-   mkdir -p data updates
+Текущий релиз: **v0.2.0** (агент и веб-интерфейс).
+
+## Проверка на одном компьютере
+
+### Готовые файлы для Windows x64
+
+1. Запустите `server/server.exe` (двойным щелчком или в PowerShell):
+
+   ```powershell
+   cd .\server
+   .\server.exe
    ```
 
-2. Start the server:
+2. Откройте второй PowerShell и запустите агент:
+
+   ```powershell
+   cd .\agent
+   .\agent.exe -server http://127.0.0.1:8080
+   ```
+
+3. Откройте [http://127.0.0.1:8080](http://127.0.0.1:8080). Агент должен появиться в списке со статусом `online`.
+
+Не закрывайте окно сервера, пока проверяете агента. База `server.db` создаётся рядом с `server.exe` и хранит регистрацию между запусками.
+
+### Запуск из исходников
+
+Нужны Go 1.22+ и Docker с Compose.
+
+1. В корне проекта запустите сервер:
+
    ```bash
+   cd server
    docker compose up --build
    ```
 
-3. Open the web interface:
-   [http://127.0.0.1:8080](http://127.0.0.1:8080)
+   Сервер и веб-интерфейс доступны на [http://127.0.0.1:8080](http://127.0.0.1:8080).
+   База хранится в `server/data/`; данные агента сохраняются между перезапусками.
 
-## API Examples
+2. В другом терминале из корня проекта запустите агент:
 
-### Agent Registration
+   ```bash
+   cd agent
+   go run . -server http://127.0.0.1:8080
+   ```
+
+   Для проверки успешного соединения агент выводит выданный сервером ID. В интерфейсе он появится в списке агентов и останется `online`, пока агент отправляет heartbeat каждые 30 секунд.
+
+3. Проверить регистрацию и статус можно также через API:
+
+   ```bash
+   curl http://127.0.0.1:8080/api/agents
+   ```
+
+Для агента в контейнере используйте `SERVER_URL=http://host.docker.internal:8080`. При запуске на другом компьютере укажите доступный адрес сервера, например `-server http://192.168.1.10:8080`; настройте firewall и публикацию порта соответственно.
+
+## Конфигурация агента
+
+- `-server URL` или `SERVER_URL` — адрес сервера. По умолчанию `http://127.0.0.1:8080`.
+- `-id ID` — необязательный постоянный ID; агент передаёт его при регистрации. Если не задан, ID создаёт сервер.
+
+Сборка:
+
 ```bash
-curl -X POST http://127.0.0.1:8080/api/agent/register \
-     -H "Content-Type: application/json" \
-     -d '{"id":"test-1","hostname":"m1","os":"linux","arch":"amd64","version":"v0.1.0"}'
+cd agent
+go build -o agent .
 ```
 
-### Get Tasks for Agent
-```bash
-curl "http://127.0.0.1:8080/api/agent/tasks?agent_id=test-1"
-```
+Сервер можно запустить без Docker из `server/` командой `go run .`. Переменные окружения: `LISTEN_ADDR` (по умолчанию `127.0.0.1:8080`), `DB_PATH` (по умолчанию `server.db`) и `UPDATE_DIR` (по умолчанию `./updates`).
 
-### Submit Task Result
-```bash
-curl -X POST http://127.0.0.1:8080/api/agent/tasks/TASK_ID/result \
-     -H "Content-Type: application/json" \
-     -d '{"status":"done","result":{"found_files":["/etc/passwd"]}}'
-```
+## API
+
+- `POST /api/agent/register` — регистрация/обновление записи агента.
+- `POST /api/agent/heartbeat` — обновление активности; агент должен быть зарегистрирован.
+- `GET /api/agent/tasks?agent_id=ID` — получение очереди задач.
+- `POST /api/agent/tasks/{id}/result` — передача состояния и результата задачи.
+- `GET /api/agents` — список агентов.
+
+Ответы с HTTP-ошибками регистрации, heartbeat, опроса и передачи результата теперь считаются ошибками, а не успешным подключением.
