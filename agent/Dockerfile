@@ -1,9 +1,7 @@
-FROM golang:1.22-alpine AS builder
-WORKDIR /src
-COPY . .
-RUN go mod init agent && go mod tidy
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o /out/agent .
-
 FROM alpine:3.19
-COPY --from=builder /out/agent /app/agent
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+COPY agent_linux /app/agent
+# By default, the agent expects -server flag, but we can use ENV for convenience
+ENV SERVER_URL=http://host.docker.internal:8080
 ENTRYPOINT ["/app/agent"]
